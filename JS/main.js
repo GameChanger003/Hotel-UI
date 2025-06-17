@@ -1,41 +1,63 @@
 const baseURL = "http://localhost:8090";
 
-document.addEventListener("DOMContentLoaded",()=>{
-document.getElementById("loginForm").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    
-    const email = document.getElementById("emailInput").value;
-    const password = document.getElementById("passwordInput").value;
-    document.getElementById("submitBtn").disabled=true;
+document.addEventListener("DOMContentLoaded", () => {
+    const loginForm = document.getElementById("loginForm");
+    const submitBtn = document.getElementById("submitBtn");
+    const messageDiv = document.getElementById("message");
 
-        const response = await fetch("http://localhost:8090/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password })
-        });
-    
+    if (!loginForm) return; // ✅ Prevents errors if form is missing
 
-    const result = await response.json();
-    document.getElementById("submitBtn").disabled=false;
+    loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        
+        const email = document.getElementById("emailInput").value;
+        const password = document.getElementById("passwordInput").value;
+        submitBtn.disabled = true;
 
-    if (result.token) {
-        const payload = JSON.parse(atob(result.token.split('.')[1]));
-        const role = payload.role;
-        localStorage.setItem("jwtToken",result.token)
-        console.log(role)
-        if (role === "ADMIN") {
-            console.log(result.token)
-            window.location.href = "./Admin/admin.html";
-        } else if (role === "GUEST") {
-            window.location.href = "./Guest/userDash.html ";
-        }else if(role =="MANAGER")
-        {
-            window.location.href="./Manager/ManagerDash.html";
+        try {
+            const response = await fetch(`${baseURL}/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (!response.ok) {
+                throw new Error("Login failed! Please check your credentials.");
+            }
+
+            const result = await response.json();
+            submitBtn.disabled = false;
+
+            if (result.token) {
+                localStorage.setItem("jwtToken", result.token);
+
+                let payload;
+                try {
+                    payload = JSON.parse(atob(result.token.split('.')[1]));
+                } catch (error) {
+                    throw new Error("Invalid token format.");
+                }
+
+                const role = payload.role;
+                console.log("User Role:", role);
+
+                // ✅ Redirect based on role
+                if (role === "ADMIN") {
+                    window.location.href = "./Admin/admin.html";
+                } else if (role === "GUEST") {
+                    window.location.href = "./Guest/userDash.html";
+                } else if (role === "MANAGER") {
+                    window.location.href = "./Manager/ManagerDash.html";
+                } else {
+                    messageDiv.innerText = "Invalid role!";
+                }
+            } else {
+                messageDiv.innerText = "Login failed!";
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            messageDiv.innerText = error.message;
+            submitBtn.disabled = false;
         }
-        else {
-            document.getElementById("message").innerText = "Invalid role!";
-        }
-    } else {
-        document.getElementById("message").innerText = "Login failed!";
-    }
-})});
+    });
+});

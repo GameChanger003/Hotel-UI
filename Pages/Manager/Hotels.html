@@ -46,20 +46,12 @@
                                 <input type="text" class="form-control" id="location" required>
                             </div>
                             <div class="mb-3">
-                                <label for="managerID" class="form-label">Manager ID</label>
-                                <input type="number" class="form-control" id="managerID" required>
-                            </div>
-                            <div class="mb-3">
                                 <label for="amenities" class="form-label">Amenities</label>
                                 <textarea class="form-control" id="amenities"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="rating" class="form-label">Rating</label>
                                 <input type="number" class="form-control" id="rating" min="1" max="5" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="hotelID" class="form-label">Hotel ID</label>
-                                <input type="number" class="form-control" id="hotelID" required>
                             </div>
                         </form>
                     </div>
@@ -92,6 +84,7 @@
     <script>
         const jwtToken = localStorage.getItem("jwtToken");
 
+
         if (!jwtToken) {
             alert("Access Denied! Please login.");
             window.location.href = "http://127.0.0.1:5500/Pages/index.html";
@@ -104,6 +97,9 @@
                 window.location.href = "http://127.0.0.1:5500/Pages/index.html";
             }
         }
+
+        const payload = JSON.parse(atob(jwtToken.split('.')[1]));
+        console.log(payload.userId);
 
         document.addEventListener("DOMContentLoaded", function() {
             fetch("navbar.html")
@@ -162,10 +158,9 @@
     const hotelData = {
         name: document.getElementById("name").value,
         location: document.getElementById("location").value,
-        managerID: document.getElementById("managerID").value,
+        managerID: payload.userId,
         amenities: document.getElementById("amenities").value,
         rating: document.getElementById("rating").value,
-        // hotelID: document.getElementById("hotelID").value
     };
 
     console.log("Hotel Details:", hotelData);

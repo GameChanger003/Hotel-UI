@@ -87,104 +87,126 @@
     </div>
 
     <script>
-        const jwtToken = localStorage.getItem("jwtToken");
+    const jwtToken = localStorage.getItem("jwtToken");
 
-        if (!jwtToken) {
-            alert("Access Denied! Please login.");
+if (!jwtToken) {
+    alert("Access Denied! Please login.");
+    window.location.href = "http://127.0.0.1:5500/Pages/index.html";
+} else {
+    try {
+        const base64Payload = jwtToken.split('.')[1]; // Get payload part
+        const decodedPayload = JSON.parse(atob(base64Payload)); // Decode and parse JSON
+
+        const role = decodedPayload.role;
+
+        if (role !== "MANAGER") {
+            alert("Access Denied! Managers only.");
             window.location.href = "http://127.0.0.1:5500/Pages/index.html";
-        } else {
-            const payload = JSON.parse(atob(jwtToken.split('.')[1]));
-            const role = payload.role;
-
-            if (role !== "MANAGER") {
-                alert("Access Denied! Managers only.");
-                window.location.href = "http://127.0.0.1:5500/Pages/index.html";
-            }
         }
+    } catch (error) {
+        console.error("Error decoding JWT token:", error);
+        alert("Invalid token. Please login again.");
+        window.location.href = "http://127.0.0.1:5500/Pages/index.html";
+    }
+}
 
-        document.addEventListener("DOMContentLoaded", function() {
-            fetch("navbar.html")
-            .then(response => response.text())
-            .then(data => {
-                document.getElementById("navbar").innerHTML = data;
-            })
-            .catch(error => console.error("Error loading navbar:", error));
+// Fetch navbar and rooms
+document.addEventListener("DOMContentLoaded", function() {
+    fetch("navbar.html")
+    .then(response => response.text())
+    .then(data => {
+        document.getElementById("navbar").innerHTML = data;
+    })
+    .catch(error => console.error("Error loading navbar:", error));
 
-            fetchRooms();
+    fetchRooms();
+});
+
+// Fetch rooms function
+function fetchRooms() {
+    if (!jwtToken) {
+        console.error("No JWT token found.");
+        return;
+    }
+
+    fetch("http://localhost:8090/Manager/rooms", {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${jwtToken}`
+        }
+    })
+    .then(response => response.ok ? response.json() : Promise.reject(`HTTP Error! Status: ${response.status}`))
+    .then(data => {
+        const tableBody = document.getElementById("roomTable");
+        tableBody.innerHTML = "";
+
+        data.forEach((room, idx) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${idx + 1}</td>
+                <td>${room.hotel}</td>
+                <td>${room.roomID}</td>
+                <td>${room.availability}</td>
+                <td>${room.features}</td>
+                <td>${room.price}</td>
+                <td>${room.type}</td>
+                <td class="text-success" onclick="editRoom(${room.roomID})">Edit</td>
+                <td class="text-danger" onclick="deleteRoom(${room.roomID})">Delete</td>
+            `;
+            tableBody.appendChild(row);
         });
+    })
+    .catch(error => console.error("Error fetching rooms:", error));
+}
 
-        function fetchRooms() {
-            fetch("http://localhost:8090/Manager/rooms", {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${jwtToken}`
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                const tableBody = document.getElementById("roomTable");
-                tableBody.innerHTML = "";
+// Submit room function
+function submitRoom() {
+    console.log("Started");
+    const saveBtn = document.getElementById("savebtn");
+    saveBtn.disabled = true;
 
-                data.forEach((room, idx) => {
-                    const row = document.createElement("tr");
-                    row.innerHTML = `
-                        <td>${idx + 1}</td>
-                        <td>${room.hotel}</td>
-                        <td>${room.roomID}</td>
-                        <td>${room.availability}</td>
-                        <td>${room.features}</td>
-                        <td>${room.price}</td>
-                        <td>${room.type}</td>
-                        <td class="text-success" onclick="editRoom(${room.roomID})">Edit</td>
-                        <td class="text-danger" onclick="deleteRoom(${room.roomID})">Delete</td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-            })
-            .catch(error => console.error("Error fetching rooms:", error));
+    if (!jwtToken) {
+        alert("Access Denied! Please login.");
+        return;
+    }
+
+    const roomData = {
+        hotel: document.getElementById("hotel").value,
+        type: document.getElementById("type").value,
+        price: document.getElementById("price").value,
+        availability: document.getElementById("availability").value,
+        features: document.getElementById("features").value
+    };
+
+    fetch("http://localhost:8090/Manager/rooms/add", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify(roomData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP Error! Status: ${response.status}`);
         }
+        return response.status;
+    })
+    .then(data => {
+        console.log("Success:", data);
 
-        function submitRoom() {
-            console.log("Started");
-            const saveBtn = document.getElementById("savebtn");
-            saveBtn.disabled = true;
+        const roomModal = bootstrap.Modal.getInstance(document.getElementById("roomModal"));
+        roomModal.hide();
 
-            const roomData = {
-                hotel: document.getElementById("hotel").value,
-                type: document.getElementById("type").value,
-                price: document.getElementById("price").value,
-                availability: document.getElementById("availability").value,
-                features: document.getElementById("features").value
-            };
+        document.getElementById("roomForm").reset();
 
-            fetch("http://localhost:8090/Manager/rooms/add", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${jwtToken}`
-                },
-                body: JSON.stringify(roomData)
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP Error! Status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log("Success:", data);
+        fetchRooms();
+    })
+    .catch(error => console.error("Error:", error))
+    .finally(() => saveBtn.disabled = false);
+}
 
-                const roomModal = bootstrap.Modal.getInstance(document.getElementById("roomModal"));
-                roomModal.hide();
-
-                document.getElementById("roomForm").reset();
-
-                fetchRooms();
-            })
-            .catch(error => console.error("Error:", error))
-            .finally(() => saveBtn.disabled = false);
-        }
     </script>
 </body>
 </html>
